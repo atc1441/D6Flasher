@@ -3,7 +3,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    tools:context=".DeviceActivity" >
+    tools:context=".DeviceActivity"
+    android:layout_marginLeft="10dp"
+    android:layout_marginRight="10dp">
 
     <LinearLayout
         android:layout_width="wrap_content"
@@ -22,8 +24,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/read_manufacturer_name" />
+
     </LinearLayout>
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100" />
+
+    <TextView
+        android:id="@+id/percentText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:visibility="gone"
+        android:text="@string/percent" />
     <ScrollView
         android:id="@+id/scroll"
         android:layout_width="match_parent"
@@ -32,6 +49,8 @@
         <TextView
             android:id="@+id/tv_content"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:text="Please wait until the Tracker is connected. please try it again if this takes more than 25 seconds"/>
     </ScrollView>
-    </LinearLayout>
+
+</LinearLayout>

@@ -1,19 +1,23 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 28
-    buildToolsVersion "28.0.3"
+    compileSdkVersion 30
+    buildToolsVersion "30.0.3"
 
     defaultConfig {
-        applicationId "com.atcnetz.ble.readwrite"
-        minSdkVersion 23
-        targetSdkVersion 28
+        applicationId "com.atcnetz.paatc.patc"
+        minSdkVersion 19
+        targetSdkVersion 30
     }
 
     buildTypes {
+        debug {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
         release {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
@@ -23,10 +27,9 @@ android {
 }
 
 dependencies {
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation('com.github.hotchemi:permissionsdispatcher:3.0.1') {
-        exclude module: "support-v13"
-    }
-    implementation project(':dfu')
+    implementation 'androidx.appcompat:appcompat:1.4.0-alpha01'
+    implementation "org.permissionsdispatcher:permissionsdispatcher:4.3.1"
+    annotationProcessor "org.permissionsdispatcher:permissionsdispatcher-processor:4.3.1"
     annotationProcessor "com.github.hotchemi:permissionsdispatcher-processor:3.0.1"
+    implementation project(':dfu')
 }

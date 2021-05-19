@@ -1,4 +1,3 @@
 include ':app'
-
 include ':dfu'
-project(':dfu').projectDir = file('DFULibrary/dfu')
+project(':dfu').projectDir = file('dfu')
