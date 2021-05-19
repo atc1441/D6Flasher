@@ -2,11 +2,13 @@ package com.atcnetz.patc.daatc;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -21,6 +23,7 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
+
 import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
@@ -28,6 +31,7 @@ import java.util.List;
 
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
+
 import com.atcnetz.patc.util.BleUtil;
 import com.atcnetz.patc.util.ScannedDevice;
 
@@ -84,13 +88,14 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
     protected void onDestroy() {
         super.onDestroy();
 
-        if (mBTAdapter.isEnabled())stopScan();
+        if (mBTAdapter.isEnabled()) stopScan();
     }
+
     @Override
     protected void onResume() {
         super.onResume();
         mDeviceAdapter.clear();
-        if (mBTAdapter.isEnabled())startScan();
+        if (mBTAdapter.isEnabled()) startScan();
     }
 
     @Override
@@ -129,7 +134,7 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
 
     @Override
     public void onLeScan(final BluetoothDevice newDeivce, final int newRssi,
-            final byte[] newScanRecord) {
+                         final byte[] newScanRecord) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -159,48 +164,64 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
         if (!mBTAdapter.isEnabled()) {
             Toast.makeText(this, R.string.bt_disabled, Toast.LENGTH_SHORT).show();
             finish();
-        }else{
+        } else {
 
-        // init listview
-        ListView deviceListView = (ListView) findViewById(R.id.list);
-        mDeviceAdapter = new DeviceAdapter(this, R.layout.listitem_device,
-                new ArrayList<ScannedDevice>());
-        deviceListView.setAdapter(mDeviceAdapter);
-        deviceListView.setOnItemClickListener(new OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterview, View view, int position, long id) {
-                ScannedDevice item = mDeviceAdapter.getItem(position);
-                if (item != null) {
-                    // stop before change Activity
-                    stopScan();
-                    Intent intent = new Intent(view.getContext(), DeviceActivity.class);
-                    BluetoothDevice selectedDevice = item.getDevice();
-                    intent.putExtra(DeviceActivity.EXTRA_BLUETOOTH_DEVICE, selectedDevice);
-                    startActivity(intent);
+            // init listview
+            ListView deviceListView = (ListView) findViewById(R.id.list);
+            mDeviceAdapter = new DeviceAdapter(this, R.layout.listitem_device,
+                    new ArrayList<ScannedDevice>());
+            deviceListView.setAdapter(mDeviceAdapter);
+            deviceListView.setOnItemClickListener(new OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> adapterview, View view, int position, long id) {
+                    ScannedDevice item = mDeviceAdapter.getItem(position);
+                    if (item != null) {
+                        // stop before change Activity
+                        stopScan();
+                        Intent intent = new Intent(view.getContext(), DeviceActivity.class);
+                        BluetoothDevice selectedDevice = item.getDevice();
+                        intent.putExtra(DeviceActivity.EXTRA_BLUETOOTH_DEVICE, selectedDevice);
+                        startActivity(intent);
 
+                    }
                 }
-            }
-        });
+            });
 
-        stopScan();
+            stopScan();
 
-        startScan();
+            startScan();
         }
     }
+
+    boolean popup_was_shown = false;
 
     @NeedsPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     void startScan() {
         if ((mBTAdapter != null) && (!mIsScanning)) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (this.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
-                }else{
-                    mBTAdapter.getBluetoothLeScanner().startScan( mLeScanCallback);
+                    if (!popup_was_shown) {
+                        popup_was_shown = true;
+                        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+                        alertDialogBuilder.setMessage("This app collects location data to enable bluetooth scanning even when the app is closed or not in use.");
+                        alertDialogBuilder.setTitle("Location permission");
+                        alertDialogBuilder.setNegativeButton("ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                dialogInterface.cancel();
+                                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+                            }
+                        });
+                        AlertDialog alertDialog = alertDialogBuilder.create();
+                        alertDialog.show();
+                    }
+                } else {
+                    mBTAdapter.getBluetoothLeScanner().startScan(mLeScanCallback);
                     mIsScanning = true;
                     setProgressBarIndeterminateVisibility(true);
                     invalidateOptionsMenu();
-            }
-            }else{
+                }
+            } else {
                 mBTAdapter.startLeScan(this);
                 mIsScanning = true;
                 setProgressBarIndeterminateVisibility(true);
@@ -213,7 +234,7 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
         if (mBTAdapter != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 mBTAdapter.getBluetoothLeScanner().stopScan(mLeScanCallback);
-            }else{
+            } else {
                 mBTAdapter.stopLeScan(this);
             }
         }
