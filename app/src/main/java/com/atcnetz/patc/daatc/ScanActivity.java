@@ -77,7 +77,7 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
                 Intent intent = new Intent();
                 intent.setAction(Intent.ACTION_VIEW);
                 intent.addCategory(Intent.CATEGORY_BROWSABLE);
-                intent.setData(Uri.parse("http://atcnetz.blogspot.de/p/datenschutzerklarung-fur-apps-im-google.html"));
+                intent.setData(Uri.parse("https://atcnetz.de/privacy_policy.html"));
                 startActivity(intent);
             }
         });
