@@ -275,7 +275,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         doDFUButton.setEnabled(false);
                         StartBootloaderButton.setText("Select File");
                         if(!updateStarted){
-                            KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
+                            KLog("DaFit Tracker Was found, please select the update file via 'Select File'. Be careful to select the right file as there is no way to verify it with this app. Do this on your own risk.");
                             AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
                             builder.setTitle("Disclaimer")
                                     .setMessage("Looks like you connected a DaFit Watch/Fitness Tracker.\n\nIt is important to notice that by flashing any Custom firmware or file you will lose your your warranty.\n\nEverything you do is at your own risk")
@@ -297,7 +297,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         blemode = true;
                         blemodenordic = true;
                         doDFUButton.setEnabled(true);
-                        KLog("BLE Device was found in Nordic Secure Bootloader mode you can Flash it by clicking on 'Do DFU Update'");
+                        KLog("BLE Device was found in Nordic Secure Bootloader mode. You can Flash it by clicking on 'Do DFU Update'");
                     }else {
                         Main_Service = D6UUIDs.Main_Service;
                         Notify_Config = D6UUIDs.Notify_Config;
@@ -305,7 +305,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         Main_Characteristic_Write = D6UUIDs.Main_Characteristic_Write;
                         blemode = true;
                         doDFUButton.setEnabled(true);
-                        KLog("No correct Device was found, do you selected the right one? you can try to flash it anyway.");
+                        KLog("No correct Device was found, did you select the right one? You can try to flash it anyway.");
                     }
                 }
             });
@@ -408,7 +408,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 e.printStackTrace();
             }
             KLog(writeCharacteristic1("BT+RESET\r\n"));
-            KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
+            KLog("Look at the Tracker. Are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
         }else if (bledevice == 2){
                 try {
                     writeCharacteristic1((char)3+"");
@@ -421,7 +421,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
+                KLog("Look at the Tracker. Are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
             }else if (bledevice == 6){
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -503,7 +503,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         }else if (fullCMD.substring(0,14).equals("FEEA100963FFFF") && watchInUpdateMode){
                             KLog("Got Last MSG with CRC: "+ fullCMD.substring(14)+ " File CRC: "+ bytesToString(fullCRC));
                             if(fullCMD.substring(14).equals(bytesToString(fullCRC))){
-                                KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in nordic Bootloader mode after it is done flashing itself.");
+                                KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in Nordic Bootloader mode after it is done flashing itself.");
                                 startDaBootloader(0);
                             }
                         }
@@ -554,7 +554,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             }
             BluetoothGattCharacteristic characteristic = service.getCharacteristic(Main_Characteristic_Write);
             if (characteristic == null || (characteristic.getProperties() & 12) == 0) {
-                return "this characteristic not support write!";
+                return "this characteristic does not support write!";
             } else if (!characteristic.setValue(data)) {
                 return "Updates the locally stored value of this characteristic fail";
             } else if (!gatt.writeCharacteristic(characteristic)) {
@@ -616,7 +616,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             }
             BluetoothGattCharacteristic characteristic = service.getCharacteristic(Main_Characteristic_Write);
             if (characteristic == null || (characteristic.getProperties() & 12) == 0) {
-                return "this characteristic not support write!";
+                return "this characteristic does not support write!";
             } else if (!characteristic.setValue(data)) {
                 return "Updates the locally stored value of this characteristic fail";
             } else if (!gatt.writeCharacteristic(characteristic)) {
@@ -710,7 +710,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             }
             BluetoothGattCharacteristic characteristic = service.getCharacteristic(DFU_Characteristic_Write);
             if (characteristic == null || (characteristic.getProperties() & 12) == 0) {
-                return "this characteristic not support write!";
+                return "this characteristic does not support write!";
             } else if (!characteristic.setValue(data)) {
                 return "Updates the locally stored value of this characteristic fail";
             } else if (!gatt.writeCharacteristic(characteristic)) {

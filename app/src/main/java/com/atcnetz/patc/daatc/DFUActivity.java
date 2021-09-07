@@ -216,11 +216,11 @@ public class DFUActivity extends Activity implements View.OnClickListener {
         checkBox = findViewById(R.id.checkBox);
         checkBox1 = findViewById(R.id.checkBox1);
         progressBar = findViewById(R.id.progressBar);
-        KLog("Please select a file you want to flash via DFU\n\nFlashing will start after the file selection\nIf you want to flash a devices with nordic Bootloader please check \"Use Nordic Bootloader\"\n\n\nIf it should fail to Upload try to Enable/Disable Bluetooth and Force Close this App, you need to have GPS enabled\n");
+        KLog("Please select a file you want to flash via DFU\n\nFlashing will start after the file selection\nIf you want to flash a device with nordic Bootloader please check \"Use Nordic Bootloader\"\n\n\nIf it should fail to Upload try to Enable/Disable Bluetooth and Force Close this App, you need to have GPS enabled\n");
         DfuServiceListenerHelper.registerProgressListener(this, mDfuProgressListener);
         selectedMac = getBTDeviceExtra();
         selectedName = mDevice.getName();
-        KLog("Selectet device: " + selectedName + " : " + selectedMac);
+        KLog("Selected device: " + selectedName + " : " + selectedMac);
     }
 
     private String getBTDeviceExtra() {
