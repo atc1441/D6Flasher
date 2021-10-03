@@ -7,6 +7,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -154,6 +155,16 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                             setProgressBarIndeterminateVisibility(false);
                         };
                     });
+                }else{
+                    if (FitUUIDs.Characteristic_Manufacturer_Name.toString().equalsIgnoreCase(characteristic.getUuid().toString())) {
+                        final String name = characteristic.getStringValue(0);
+                        Log.d("Manufacturer_Name", name);
+                        runOnUiThread(new Runnable() {
+                            public void run() {
+                            check_fit_version(name);
+                            };
+                        });
+                    }
                 }
             }
         }
@@ -164,7 +175,9 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 byte[] receiverData = characteristic.getValue();
                 if(bledevice==6){
                     filterFitResponse(receiverData);
-                }else {
+                }else if(bledevice==66){
+                    filterFitResponseV2(receiverData);
+                }else{
                     filterResponse(new String(receiverData, StandardCharsets.UTF_8));
                 }
             }
@@ -271,24 +284,18 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         Main_Characteristic_Write = FitUUIDs.Main_Characteristic_Write;
                         blemode = false;
                         StartBootloaderButton.setEnabled(true);
-                        setNotifyCharacteristic(true);
-                        doDFUButton.setEnabled(false);
-                        StartBootloaderButton.setText("Select File");
-                        if(!updateStarted){
-                            KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
-                            AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
-                            builder.setTitle("Disclaimer")
-                                    .setMessage("Looks like you connected a DaFit Watch/Fitness Tracker.\n\nIt is important to notice that by flashing any Custom firmware or file you will lose your your warranty.\n\nEverything you do is at your own risk")
-                                    .setCancelable(false)
-                                    .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                                        @Override
-                                        public void onClick(DialogInterface dialog, int which) {
-                                        }
-                                    });
-                            AlertDialog dialog  = builder.create();
-                            dialog.show();
 
-                        }
+                        BluetoothGatt gatt1 = mConnGatt;
+                        if (gatt1 != null) {
+                            BluetoothGattService service = gatt1.getService(FitUUIDs.Service_Decive_Information);
+                            if (service != null) {
+                                BluetoothGattCharacteristic characteristic = service.getCharacteristic(FitUUIDs.Characteristic_Manufacturer_Name);
+                                if (characteristic != null) {
+                                    Log.d("Read_Manufacturer_Info",gatt.readCharacteristic(characteristic)?"1":"0");
+                                }else KLog("Characteristic not found");
+                            }else KLog("Service not found");
+                        }else KLog("Gatt not found");
+
                     }else if(bledevice==7){
                         Main_Service = StockSecureDFUUUIDs.Main_Service;
                         Notify_Config = StockSecureDFUUUIDs.Notify_Config;
@@ -316,6 +323,35 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
          sendNextPart();
         }
     };
+
+    void check_fit_version(String manu_name){
+        setNotifyCharacteristic(true);
+
+        if(manu_name.equals("MOYOUNG-V2")){
+            KLog("V2 detected");
+            bledevice = 66;
+        }else{
+            KLog("V1 detected");
+        }
+
+        doDFUButton.setEnabled(false);
+        StartBootloaderButton.setText("Select File");
+
+        if(!updateStarted){
+            KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
+            AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
+            builder.setTitle("Disclaimer")
+                    .setMessage("Looks like you connected a DaFit Watch/Fitness Tracker.\n\nIt is important to notice that by flashing any Custom firmware or file you will lose your your warranty.\n\nEverything you do is at your own risk")
+                    .setCancelable(false)
+                    .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                        }
+                    });
+            AlertDialog dialog  = builder.create();
+            dialog.show();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -370,7 +406,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.DoDfu) {
-            if(bledevice != 6) {
+            if(bledevice != 6 && bledevice != 66) {
                 if (mConnGatt != null) {
                     Method refresh = null;
                     try {
@@ -422,7 +458,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     e.printStackTrace();
                 }
                 KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
-            }else if (bledevice == 6){
+            }else if (bledevice == 6 || bledevice == 66){
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("*/*");
@@ -472,12 +508,51 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     public static class FitUUIDs {
         static final UUID Main_Characteristic_Write = UUID.fromString("0000fee2-0000-1000-8000-00805f9b34fb");
         static final UUID Main_Characteristic_Notify = UUID.fromString("0000fee3-0000-1000-8000-00805f9b34fb");
+        static final UUID Service_Decive_Information = UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
+        static final UUID Characteristic_Manufacturer_Name = UUID.fromString("00002a29-0000-1000-8000-00805f9b34fb");
         static final UUID Notify_Config = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
         static final UUID Main_Service = UUID.fromString("0000feea-0000-1000-8000-00805f9b34fb");
     }
 
 
     public void filterFitResponse(byte[] data){
+        runOnUiThread(new Runnable() {
+            public void run() {
+                //KLog(bytesToString(data));
+                if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && data[2]==(byte)0x10){
+                    cmdFitLength = data[3];
+                    fullCMD = bytesToString(data);
+                    receivedLength = data.length;
+                }else if(receivedLength < cmdFitLength ){
+                    receivedLength += data.length;
+                    fullCMD += bytesToString(data);
+                }
+                if(receivedLength==cmdFitLength){
+                    //KLog("Got CMD, length: "+cmdFitLength);
+                    if(updateStarted){
+                        if(fullCMD.equals("FEEA1007630000") && !watchInUpdateMode){
+                            watchInUpdateMode = true;
+                            KLog("DaFit in Bootloader mode, starting upload now");
+                            doFitUpdate(0);
+                        }else if (fullCMD.substring(0,10).equals("FEEA100763") && watchInUpdateMode){
+                            int currPosOnWatch = ((data[5]& 255)<<8)+(data[6]& 255);
+                            //KLog("Curr Watch Pos: "+currPosOnWatch);
+                            doFitUpdate(currPosOnWatch);
+                        }else if (fullCMD.substring(0,14).equals("FEEA100963FFFF") && watchInUpdateMode){
+                            KLog("Got Last MSG with CRC: "+ fullCMD.substring(14)+ " File CRC: "+ bytesToString(fullCRC));
+                            if(fullCMD.substring(14).equals(bytesToString(fullCRC))){
+                                KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in nordic Bootloader mode after it is done flashing itself.");
+                                startDaBootloader(0);
+                            }
+                        }
+                    }else{
+                        KLog(fullCMD);
+                    }
+                }
+            }});
+    }
+
+    public void filterFitResponseV2(byte[] data){
         runOnUiThread(new Runnable() {
             public void run() {
                 //KLog(bytesToString(data));
