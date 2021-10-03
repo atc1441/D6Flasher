@@ -26,14 +26,14 @@ import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 
+import com.atcnetz.patc.util.BleUtil;
+import com.atcnetz.patc.util.ScannedDevice;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
-
-import com.atcnetz.patc.util.BleUtil;
-import com.atcnetz.patc.util.ScannedDevice;
 
 @RuntimePermissions
 public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCallback {

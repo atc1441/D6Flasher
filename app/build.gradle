@@ -1,13 +1,12 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
-    buildToolsVersion "30.0.3"
+    compileSdkVersion 31
 
     defaultConfig {
         applicationId "com.atcnetz.paatc.patc"
         minSdkVersion 19
-        targetSdkVersion 30
+        targetSdkVersion 31
     }
 
     buildTypes {
@@ -27,9 +26,8 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.4.0-alpha01'
-    implementation "org.permissionsdispatcher:permissionsdispatcher:4.3.1"
-    annotationProcessor "org.permissionsdispatcher:permissionsdispatcher-processor:4.3.1"
-    annotationProcessor "com.github.hotchemi:permissionsdispatcher-processor:3.0.1"
+    implementation 'androidx.appcompat:appcompat:1.4.0-beta01'
+    implementation "com.github.permissions-dispatcher:permissionsdispatcher:4.8.0"
+    annotationProcessor "com.github.permissions-dispatcher:permissionsdispatcher-processor:4.8.0"
     implementation project(':dfu')
 }
