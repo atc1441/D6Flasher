@@ -82,6 +82,8 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     String fullCMD = "";
     byte[] fullCRC;
 
+    volatile boolean is_busy_writing=false;
+
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
         if (requestCode == READ_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
@@ -320,7 +322,15 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-         sendNextPart();
+            if(updateStarted) {
+                if(bledevice == 6) {
+                    sendNextPart();
+                }else if(bledevice == 66){
+                    sendNextPartV2();
+                }
+            }else{
+                is_busy_writing=false;
+            }
         }
     };
 
@@ -350,7 +360,76 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     });
             AlertDialog dialog  = builder.create();
             dialog.show();
+/*
+            try {
+                sleep(500);
+                sendFitCMDV21((byte) 0x5a,"00");
+                sendFitCMDV2((byte) 0x5a,"00");
+                sendFitCMDV2((byte) 0x5a,"02");
+                sendFitCMDV2((byte) 0x31,"6159784E08");
+                sendFitCMDV2((byte) 0x5a,"01");
+                sendFitCMDV2((byte) 0x54,"43");
+                sendFitCMDV2((byte) 0x12,"AA411500");
+                sendFitCMDV2((byte) 0x17,"01");
+                sendFitCMDV2((byte) 0xA6,"01");
+                sendFitCMDV2((byte) 0x39,"");
+                sendFitCMDV2((byte) 0x2F,"");
+                sendFitCMDV2((byte) 0x3B,"03");
+                sendFitCMDV2((byte) 0x8E,"");
+                sendFitCMDV2((byte) 0x2B,"");
+                sendFitCMDV2((byte) 0x25,"FF");
+                sendFitCMDV2((byte) 0x85,"");
+                sendFitCMDV2((byte) 0x1C,"00");
+                sendFitCMDV2((byte) 0x87,"01");
+                sendFitCMDV2((byte) 0x87,"02");
+                sendFitCMDV2((byte) 0x8D,"");
+                sendFitCMDV2((byte) 0x87,"03");
+                sendFitCMDV2((byte) 0x8C,"");
+                sendFitCMDV2((byte) 0xF1,"00");
+                sendFitCMDV2((byte) 0xF2,"00");
+                sendFitCMDV2((byte) 0x67,"0D0F");
+                sendFitCMDV2((byte) 0x67,"0C07");
+                sendFitCMDV2((byte) 0x26,"");
+                sendFitCMDV2((byte) 0xA4,"");
+                sendFitCMDV2((byte) 0x44,"FF");
+                sendFitCMDV2((byte) 0x32,"");
+                KLog("Trying to get Firmware infos now...");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+        }*/
+    }
+    }
+
+    void sendFitCMDV2(byte cmd,String data){
+        sendFitCMD(cmd,hexToByteArray(data));
+        long time= System.currentTimeMillis();
+        is_busy_writing = true;
+        while(is_busy_writing){if(System.currentTimeMillis() - time > 500){
+            KLog("Error Char write tiemout");
+            return;}
         }
+    }
+    void sendFitCMDV21(byte cmd,String data){
+        sendFitCMD2(cmd,hexToByteArray(data));
+        long time= System.currentTimeMillis();
+        is_busy_writing = true;
+        while(is_busy_writing){if(System.currentTimeMillis() - time > 500){
+            KLog("Error Char write tiemout");
+            return;}
+        }
+    }
+
+    public static byte[] hexToByteArray(String hex) {
+        hex = hex.length()%2 != 0?"0"+hex:hex;
+
+        byte[] b = new byte[hex.length() / 2];
+
+        for (int i = 0; i < b.length; i++) {
+            int index = i * 2;
+            int v = Integer.parseInt(hex.substring(index, index + 2), 16);
+            b[i] = (byte) v;
+        }
+        return b;
     }
 
     @Override
@@ -518,7 +597,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     public void filterFitResponse(byte[] data){
         runOnUiThread(new Runnable() {
             public void run() {
-                //KLog(bytesToString(data));
+                KLog(bytesToString(data));
                 if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && data[2]==(byte)0x10){
                     cmdFitLength = data[3];
                     fullCMD = bytesToString(data);
@@ -556,7 +635,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         runOnUiThread(new Runnable() {
             public void run() {
                 //KLog(bytesToString(data));
-                if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && data[2]==(byte)0x10){
+                if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && (data[2]==(byte)0x10 || data[2] == (byte)0x20)){
                     cmdFitLength = data[3];
                     fullCMD = bytesToString(data);
                     receivedLength = data.length;
@@ -667,7 +746,17 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
     public void sendFitCMD(byte cmd, byte[] data) {
-        byte[] startBytes = {(byte)0xFE,(byte)0xEA,(byte)0x10,(byte)0x00,(byte)0x00};
+        byte[] startBytes = {(byte)0xFE,(byte)0xEA,(bledevice==6)?(byte)0x10:(byte)0x20,(byte)0x00,(byte)0x00};
+        startBytes[3] = (byte)(startBytes.length + data.length);
+        startBytes[4] = cmd;
+        byte[] c = new byte[startBytes.length + data.length];
+        System.arraycopy(startBytes, 0, c, 0, startBytes.length);
+        System.arraycopy(data, 0, c, startBytes.length, data.length);
+        //KLog(bytesToString(c));
+        String temp = writeCharacteristic2(c);
+    }
+    public void sendFitCMD2(byte cmd, byte[] data) {
+        byte[] startBytes = {(byte)0xFE,(byte)0xEA,(byte)0x20,(byte)0x00,(byte)0x00};
         startBytes[3] = (byte)(startBytes.length + data.length);
         startBytes[4] = cmd;
         byte[] c = new byte[startBytes.length + data.length];
@@ -768,7 +857,21 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 fullSend = new byte[0];
                 writeCharacteristicDFU(dataWrite);
             }
+        }
     }
+
+    public void sendNextPartV2(){
+        if(fullSend!=null){
+            if(fullSend.length > 0) if(fullSend.length > 20) {
+                byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, 20);
+                fullSend = Arrays.copyOfRange(fullSend, 20, fullSend.length );
+                writeCharacteristicDFU(dataWrite);
+            }else {
+                byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, fullSend.length);
+                fullSend = new byte[0];
+                writeCharacteristicDFU(dataWrite);
+            }
+        }
     }
     public String writeCharacteristicDFU(byte[] data) {
         final UUID DFU_Characteristic_Write = UUID.fromString("0000fee5-0000-1000-8000-00805f9b34fb");
