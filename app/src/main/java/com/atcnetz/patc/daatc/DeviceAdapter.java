@@ -67,7 +67,7 @@ public class DeviceAdapter extends ArrayAdapter<ScannedDevice> {
         for (ScannedDevice device : mList) {
             if (newDevice.getAddress().equals(device.getDevice().getAddress())) {
                 contains = true;
-                device.setRssi(rssi); // update
+                device.setRssi(rssi);
                 break;
             }
         }

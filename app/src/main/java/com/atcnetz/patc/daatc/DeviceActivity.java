@@ -27,6 +27,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.OpenableColumns;
@@ -40,6 +41,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import static java.lang.Thread.sleep;
+
+import androidx.annotation.RequiresApi;
 
 public class DeviceActivity extends Activity implements View.OnClickListener {
     private static final int READ_REQUEST_CODE = 42;
@@ -83,7 +86,11 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     String fullCMD = "";
     byte[] fullCRC;
 
-    int Fit_version = 1;
+    int fit_protocol_version = 1;
+    static int DEFAULT_MTU_SIZE = 23;
+    static int BIG_MTU_SIZE = 247;
+    volatile int mtu_size = DEFAULT_MTU_SIZE;
+    volatile boolean wait_for_notify_enabled = false;
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
@@ -108,11 +115,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     fullCMD = "";
                     fullCRC = new byte[0];
                     percentText.setVisibility(View.GONE);
-                    if (totalSizeUpdate < 0x10000 || totalSizeUpdate > ((Fit_version==1)?0x2f000:0x5f000)) {
-                        KLog("File size is wrong, please select the right file, needs to be between 0x10000 and 0x2f000 byte big.");
-                    } else {
-                        startDaBootloader(loadedUpdateFile.length);
-                    }
+                    startDaBootloader(loadedUpdateFile.length);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -179,6 +182,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            wait_for_notify_enabled = false;
             if (Main_Characteristic_Notify.equals(characteristic.getUuid())) {
                 byte[] receiverData = characteristic.getValue();
                 if (bledevice == 6) {
@@ -327,23 +331,23 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             sendNextPart();
         }
+
+        @Override
+        public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
+            super.onMtuChanged(gatt, mtu, status);
+            mtu_size = mtu - 3;
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            super.onDescriptorWrite(gatt, descriptor, status);
+            wait_for_notify_enabled = false;
+        }
+
     };
 
     void check_fit_version(String manu_name) {
-        setNotifyCharacteristic(true);
-
-        doDFUButton.setEnabled(false);
-        StartBootloaderButton.setText("Select File");
-
         if (!updateStarted) {
-
-            if (manu_name.equals("MOYOUNG-V2")) {
-                KLog("V2 detected");
-                Fit_version = 2;
-            } else {
-                KLog("V1 detected");
-                Fit_version = 1;
-            }
             KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
             AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
             builder.setTitle("Disclaimer")
@@ -356,6 +360,20 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     });
             AlertDialog dialog = builder.create();
             dialog.show();
+
+            setNotifyCharacteristic(true);
+            if (manu_name.equals("MOYOUNG-V2")) {
+                KLog("V2 detected");
+                fit_protocol_version = 2;
+                requestMTUsize();
+            } else {
+                KLog("V1 detected");
+                fit_protocol_version = 1;
+            }
+
+            doDFUButton.setEnabled(false);
+            StartBootloaderButton.setText("Select File");
+
         }
     }
 
@@ -442,7 +460,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 intent.putExtra(DeviceActivity.EXTRA_BLUETOOTH_MODE_NORDIC, blemodenordic);
                 startActivity(intent);
             } else {
-                startDaBootloader(0);
+                KLog("Not supported for DaFit");
             }
         } else if (v.getId() == R.id.startBootloader) {
             if (bledevice == 1) {
@@ -539,7 +557,6 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 if (receivedLength == cmdFitLength) {
                     //KLog("Got CMD, length: "+cmdFitLength);
                     if (updateStarted) {
-                        KLog(fullCMD);
                         if (fullCMD.equals("FEEA1007630000") && !watchInUpdateMode) {
                             watchInUpdateMode = true;
                             KLog("DaFit in Bootloader mode, starting upload now");
@@ -553,10 +570,18 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                             if (fullCMD.substring(14).equals(bytesToString(fullCRC))) {
                                 KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in nordic Bootloader mode after it is done flashing itself.");
                                 startDaBootloader(0);
+                            } else {
+                                KLog("CRC is not correct, aborting the DFU process now, please try again");
+                                sendFitCMD((byte) 0x63, intToByteArray(0xffffffff));
                             }
                         }
                     } else {
                         KLog(fullCMD);
+                        if (fullCMD.substring(0, 10).equals("FEEA100763")) {
+                            int currPosOnWatch = ((data[5] & 255) << 8) + (data[6] & 255);
+                            KLog("DaFit is in DFU mode without a running update, aborting it");
+                            sendFitCMD((byte) 0x63, intToByteArray(0xffffffff));
+                        }
                     }
                 }
             }
@@ -630,28 +655,35 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         progressBar.setProgress(0);
         fullCRC = new byte[0];
         percentText.setVisibility(View.GONE);
+
         try {
-            sendFitCMD((byte) 0x63, intToByteArray(size));
-            if (size > 0) rebootStarted = true;
-            updateStarted = true;
-            percentText.setVisibility(View.VISIBLE);
-            fullCRC = crc16(loadedUpdateFile);
-            if (size > 0) KLog("Send Bootloader Start");
-            sleep(30);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+            if (size >0 && size < 0x10000) {
+                KLog("Selected file is to small, size: " + size);
+            }else if (size > ((fit_protocol_version == 1) ? 0x2f000 : 0x3f000)) {
+                KLog("Selected file is to big, size: " + size);
+            }else {
+                sendFitCMD((byte) 0x63, intToByteArray(size));
+                if(fit_protocol_version==1)rebootStarted = true;
+                updateStarted = true;
+                percentText.setVisibility(View.VISIBLE);
+                fullCRC = crc16(loadedUpdateFile);
+                KLog("Send Bootloader Start");
+                sleep(30);
+            }
+            } catch(InterruptedException e){
+                e.printStackTrace();
+            }
     }
 
     public void sendFitCMD(byte cmd, byte[] data) {
-        byte[] startBytes = {(byte) 0xFE, (byte) 0xEA, ((Fit_version == 1) ? (byte) 0x10 : (byte) 0x20), (byte) 0x00, (byte) 0x00};
+        byte[] startBytes = {(byte) 0xFE, (byte) 0xEA, ((fit_protocol_version == 1) ? (byte) 0x10 : (byte) 0x20), (byte) 0x00, (byte) 0x00};
         startBytes[3] = (byte) (startBytes.length + data.length);
         startBytes[4] = cmd;
         byte[] c = new byte[startBytes.length + data.length];
         System.arraycopy(startBytes, 0, c, 0, startBytes.length);
         System.arraycopy(data, 0, c, startBytes.length, data.length);
         //KLog(bytesToString(c));
-        String temp = writeCharacteristic2(c);
+        writeCharacteristic2(c);
     }
 
     public String writeCharacteristic2(byte[] data) {
@@ -672,6 +704,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             } else if (!characteristic.setValue(data)) {
                 return "Updates the locally stored value of this characteristic fail";
             } else if (!gatt.writeCharacteristic(characteristic)) {
+                KLog("gatt writeCharacteristic fail");
                 return "gatt writeCharacteristic fail";
             } else {
                 return "Wrote to Characteristic!";
@@ -681,11 +714,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
 
     @SuppressLint("SetTextI18n")
     public void doFitUpdate(int currWatchPos) {
+        int fit_update_part_len = (fit_protocol_version == 1) ? 256 : mtu_size;
         if (currWatchPos > currentPartPos) {
             currentPartPos = currWatchPos;
-            if (loadedUpdateFile.length > 256) {
-                currPart = Arrays.copyOfRange(loadedUpdateFile, 0, 256);
-                loadedUpdateFile = Arrays.copyOfRange(loadedUpdateFile, 256, loadedUpdateFile.length);
+            if (loadedUpdateFile.length > fit_update_part_len) {
+                currPart = Arrays.copyOfRange(loadedUpdateFile, 0, fit_update_part_len);
+                loadedUpdateFile = Arrays.copyOfRange(loadedUpdateFile, fit_update_part_len, loadedUpdateFile.length);
             } else {
                 currPart = loadedUpdateFile;
                 loadedUpdateFile = new byte[0];
@@ -698,16 +732,23 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
     public void sendFitDFU(byte[] data) {
-        byte[] startBytes = {(byte) 0xFE, (byte) 0x00, (byte) 0x00, (byte) 0x00};
-        byte[] crc16 = crc16(data);
-        startBytes[1] = crc16[0];
-        startBytes[2] = crc16[1];
-        startBytes[3] = (byte) data.length;
-        byte[] c = new byte[startBytes.length + data.length];
-        System.arraycopy(startBytes, 0, c, 0, startBytes.length);
-        System.arraycopy(data, 0, c, startBytes.length, data.length);
-        //KLog(bytesToString(c));
-        String temp = writeCharacteristicDFUpre(c);
+        byte[] c;
+        if (fit_protocol_version == 1) {
+            byte[] startBytes = {(byte) 0xFE, (byte) 0x00, (byte) 0x00, (byte) 0x00};
+            byte[] crc16 = crc16(data);
+            startBytes[1] = crc16[0];
+            startBytes[2] = crc16[1];
+            startBytes[3] = (byte) data.length;
+            c = new byte[startBytes.length + data.length];
+            System.arraycopy(startBytes, 0, c, 0, startBytes.length);
+            System.arraycopy(data, 0, c, startBytes.length, data.length);
+            //KLog(bytesToString(c));
+            writeCharacteristicDFUpre(c);
+        } else {
+            c = new byte[data.length];
+            System.arraycopy(data, 0, c, 0, data.length);
+            writeCharacteristicDFU(data);
+        }
     }
 
     public static byte[] crc16(final byte[] buffer) {
@@ -784,6 +825,15 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         return ret;
     }
 
+    void requestMTUsize() {
+        BluetoothGatt gatt = mConnGatt;
+        if (gatt != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                gatt.requestMtu(BIG_MTU_SIZE);
+            }
+        }
+    }
+
     public void setNotifyCharacteristic(boolean enabled) {
         BluetoothGatt gatt = mConnGatt;
         if (gatt != null) {
@@ -809,6 +859,9 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                             descriptor.setValue(enabled ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : new byte[]{(byte) 0, (byte) 0});
                         }
                         gatt.writeDescriptor(descriptor);
+                        wait_for_notify_enabled = true;
+                        while (wait_for_notify_enabled) {
+                        }
                     }
                 }
             }
@@ -950,6 +1003,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         return bytes;
     }
 
+    @SuppressLint("Range")
     public String getFileName(Uri uri) {
         String result = null;
         if (Objects.equals(uri.getScheme(), "content")) {
