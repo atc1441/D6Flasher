@@ -108,11 +108,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     fullCMD = "";
                     fullCRC = new byte[0];
                     percentText.setVisibility(View.GONE);
-<<<<<<< Updated upstream
                     if (totalSizeUpdate < 0x10000 || totalSizeUpdate > ((Fit_version==1)?0x2f000:0x5f000)) {
-=======
-                    if(totalSizeUpdate<0x10000 || totalSizeUpdate > 0x4f000){
->>>>>>> Stashed changes
                         KLog("File size is wrong, please select the right file, needs to be between 0x10000 and 0x2f000 byte big.");
                     } else {
                         startDaBootloader(loadedUpdateFile.length);
