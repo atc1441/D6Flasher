@@ -1,4 +1,5 @@
 package com.atcnetz.patc.daatc;
+
 import com.atcnetz.patc.util.BleUtil;
 
 import java.io.IOException;
@@ -7,7 +8,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -38,6 +38,7 @@ import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import static java.lang.Thread.sleep;
 
 public class DeviceActivity extends Activity implements View.OnClickListener {
@@ -82,7 +83,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     String fullCMD = "";
     byte[] fullCRC;
 
-    volatile boolean is_busy_writing=false;
+    int Fit_version = 1;
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent resultData) {
@@ -94,7 +95,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 try {
                     loadedUpdateFile = fullyReadFileToBytes(uri);
                     totalSizeUpdate = loadedUpdateFile.length;
-                    KLog("File Size: "+totalSizeUpdate+ " bytes");
+                    KLog("File Size: " + totalSizeUpdate + " bytes");
                     progressBar.setProgress(0);
                     updateStarted = false;
                     rebootStarted = false;
@@ -107,9 +108,9 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     fullCMD = "";
                     fullCRC = new byte[0];
                     percentText.setVisibility(View.GONE);
-                    if(totalSizeUpdate<0x10000 || totalSizeUpdate > 0x2f000){
+                    if (totalSizeUpdate < 0x10000 || totalSizeUpdate > ((Fit_version==1)?0x2f000:0x5f000)) {
                         KLog("File size is wrong, please select the right file, needs to be between 0x10000 and 0x2f000 byte big.");
-                    }else{
+                    } else {
                         startDaBootloader(loadedUpdateFile.length);
                     }
                 } catch (IOException e) {
@@ -126,8 +127,9 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 runOnUiThread(new Runnable() {
                     public void run() {
-                       if(!updateStarted) tvContent.setText("");
-                    }});
+                        if (!updateStarted) tvContent.setText("");
+                    }
+                });
                 mStatus = newState;
                 mConnGatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -136,11 +138,11 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     public void run() {
                         KLog("Disconnected");
                         StartBootloaderButton.setEnabled(false);
-                        if(rebootStarted){
-                            rebootStarted=false;
+                        if (rebootStarted) {
+                            rebootStarted = false;
                             KLog("Going to reconnect now, please wait");
                             init();
-                            }
+                        }
                     }
                 });
             }
@@ -155,16 +157,20 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         public void run() {
                             KLog(name);
                             setProgressBarIndeterminateVisibility(false);
-                        };
+                        }
+
+                        ;
                     });
-                }else{
+                } else {
                     if (FitUUIDs.Characteristic_Manufacturer_Name.toString().equalsIgnoreCase(characteristic.getUuid().toString())) {
                         final String name = characteristic.getStringValue(0);
                         Log.d("Manufacturer_Name", name);
                         runOnUiThread(new Runnable() {
                             public void run() {
-                            check_fit_version(name);
-                            };
+                                check_fit_version(name);
+                            }
+
+                            ;
                         });
                     }
                 }
@@ -175,16 +181,13 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             if (Main_Characteristic_Notify.equals(characteristic.getUuid())) {
                 byte[] receiverData = characteristic.getValue();
-                if(bledevice==6){
+                if (bledevice == 6) {
                     filterFitResponse(receiverData);
-                }else if(bledevice==66){
-                    filterFitResponseV2(receiverData);
-                }else{
+                } else {
                     filterResponse(new String(receiverData, StandardCharsets.UTF_8));
                 }
             }
         }
-
 
 
         @Override
@@ -196,22 +199,22 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 if (D6UUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 1;
                     break;
-                }else if(EspruinoUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())){
+                } else if (EspruinoUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 2;
                     break;
-                }else if(DFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())){
+                } else if (DFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 3;
                     break;
-                }else if(StockDFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())){
+                } else if (StockDFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 5;
                     break;
-                }else if(FitUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())){
+                } else if (FitUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 6;
                     break;
-                }else if(StockSecureDFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())){
+                } else if (StockSecureDFUUUIDs.Main_Service.toString().equalsIgnoreCase(service.getUuid().toString())) {
                     bledevice = 7;
                     break;
-                }else {
+                } else {
                     bledevice = 4;
                 }
             }
@@ -220,7 +223,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 @SuppressLint("SetTextI18n")
                 public void run() {
                     setProgressBarIndeterminateVisibility(false);
-                    if (bledevice==1){
+                    if (bledevice == 1) {
                         Main_Service = D6UUIDs.Main_Service;
                         Notify_Config = D6UUIDs.Notify_Config;
                         Main_Characteristic_Notify = D6UUIDs.Main_Characteristic_Notify;
@@ -239,7 +242,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                    }else if(bledevice==2){
+                    } else if (bledevice == 2) {
                         Main_Service = EspruinoUUIDs.Main_Service;
                         Notify_Config = EspruinoUUIDs.Notify_Config;
                         Main_Characteristic_Notify = EspruinoUUIDs.Main_Characteristic_Notify;
@@ -251,7 +254,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         KLog("BLE Device was found in Espruino mode, you can bring it to Bootloader by clicking on 'Start Bootloader'");
                         try {
                             sleep(300);
-                            writeCharacteristic1((char)3+"");
+                            writeCharacteristic1((char) 3 + "");
                             sleep(30);
                             writeCharacteristic1("\r");
                             sleep(30);
@@ -262,7 +265,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
-                    }else if(bledevice==3){
+                    } else if (bledevice == 3) {
                         Main_Service = DFUUUIDs.Main_Service;
                         Notify_Config = DFUUUIDs.Notify_Config;
                         Main_Characteristic_Notify = DFUUUIDs.Main_Characteristic_Notify;
@@ -270,7 +273,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         blemode = true;
                         doDFUButton.setEnabled(true);
                         KLog("D6 was found in Bootloader mode you can Flash it by clicking on 'Do DFU Update'");
-                    }else if(bledevice==5){
+                    } else if (bledevice == 5) {
                         Main_Service = StockDFUUUIDs.Main_Service;
                         Notify_Config = StockDFUUUIDs.Notify_Config;
                         Main_Characteristic_Notify = StockDFUUUIDs.Main_Characteristic_Notify;
@@ -279,7 +282,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         blemodenordic = true;
                         doDFUButton.setEnabled(true);
                         KLog("BLE Device was found in Nordic Bootloader mode you can Flash it by clicking on 'Do DFU Update'");
-                    }else if(bledevice==6){
+                    } else if (bledevice == 6) {
                         Main_Service = FitUUIDs.Main_Service;
                         Notify_Config = FitUUIDs.Notify_Config;
                         Main_Characteristic_Notify = FitUUIDs.Main_Characteristic_Notify;
@@ -293,12 +296,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                             if (service != null) {
                                 BluetoothGattCharacteristic characteristic = service.getCharacteristic(FitUUIDs.Characteristic_Manufacturer_Name);
                                 if (characteristic != null) {
-                                    Log.d("Read_Manufacturer_Info",gatt.readCharacteristic(characteristic)?"1":"0");
-                                }else KLog("Characteristic not found");
-                            }else KLog("Service not found");
-                        }else KLog("Gatt not found");
+                                    Log.d("Read_Manufacturer_Info", gatt.readCharacteristic(characteristic) ? "1" : "0");
+                                } else KLog("Characteristic not found");
+                            } else KLog("Service not found");
+                        } else KLog("Gatt not found");
 
-                    }else if(bledevice==7){
+                    } else if (bledevice == 7) {
                         Main_Service = StockSecureDFUUUIDs.Main_Service;
                         Notify_Config = StockSecureDFUUUIDs.Notify_Config;
                         Main_Characteristic_Notify = StockSecureDFUUUIDs.Main_Characteristic_Notify;
@@ -307,7 +310,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         blemodenordic = true;
                         doDFUButton.setEnabled(true);
                         KLog("BLE Device was found in Nordic Secure Bootloader mode you can Flash it by clicking on 'Do DFU Update'");
-                    }else {
+                    } else {
                         Main_Service = D6UUIDs.Main_Service;
                         Notify_Config = D6UUIDs.Notify_Config;
                         Main_Characteristic_Notify = D6UUIDs.Main_Characteristic_Notify;
@@ -322,32 +325,25 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            if(updateStarted) {
-                if(bledevice == 6) {
-                    sendNextPart();
-                }else if(bledevice == 66){
-                    sendNextPartV2();
-                }
-            }else{
-                is_busy_writing=false;
-            }
+            sendNextPart();
         }
     };
 
-    void check_fit_version(String manu_name){
+    void check_fit_version(String manu_name) {
         setNotifyCharacteristic(true);
-
-        if(manu_name.equals("MOYOUNG-V2")){
-            KLog("V2 detected");
-            bledevice = 66;
-        }else{
-            KLog("V1 detected");
-        }
 
         doDFUButton.setEnabled(false);
         StartBootloaderButton.setText("Select File");
 
-        if(!updateStarted){
+        if (!updateStarted) {
+
+            if (manu_name.equals("MOYOUNG-V2")) {
+                KLog("V2 detected");
+                Fit_version = 2;
+            } else {
+                KLog("V1 detected");
+                Fit_version = 1;
+            }
             KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
             AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
             builder.setTitle("Disclaimer")
@@ -358,78 +354,9 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                         public void onClick(DialogInterface dialog, int which) {
                         }
                     });
-            AlertDialog dialog  = builder.create();
+            AlertDialog dialog = builder.create();
             dialog.show();
-/*
-            try {
-                sleep(500);
-                sendFitCMDV21((byte) 0x5a,"00");
-                sendFitCMDV2((byte) 0x5a,"00");
-                sendFitCMDV2((byte) 0x5a,"02");
-                sendFitCMDV2((byte) 0x31,"6159784E08");
-                sendFitCMDV2((byte) 0x5a,"01");
-                sendFitCMDV2((byte) 0x54,"43");
-                sendFitCMDV2((byte) 0x12,"AA411500");
-                sendFitCMDV2((byte) 0x17,"01");
-                sendFitCMDV2((byte) 0xA6,"01");
-                sendFitCMDV2((byte) 0x39,"");
-                sendFitCMDV2((byte) 0x2F,"");
-                sendFitCMDV2((byte) 0x3B,"03");
-                sendFitCMDV2((byte) 0x8E,"");
-                sendFitCMDV2((byte) 0x2B,"");
-                sendFitCMDV2((byte) 0x25,"FF");
-                sendFitCMDV2((byte) 0x85,"");
-                sendFitCMDV2((byte) 0x1C,"00");
-                sendFitCMDV2((byte) 0x87,"01");
-                sendFitCMDV2((byte) 0x87,"02");
-                sendFitCMDV2((byte) 0x8D,"");
-                sendFitCMDV2((byte) 0x87,"03");
-                sendFitCMDV2((byte) 0x8C,"");
-                sendFitCMDV2((byte) 0xF1,"00");
-                sendFitCMDV2((byte) 0xF2,"00");
-                sendFitCMDV2((byte) 0x67,"0D0F");
-                sendFitCMDV2((byte) 0x67,"0C07");
-                sendFitCMDV2((byte) 0x26,"");
-                sendFitCMDV2((byte) 0xA4,"");
-                sendFitCMDV2((byte) 0x44,"FF");
-                sendFitCMDV2((byte) 0x32,"");
-                KLog("Trying to get Firmware infos now...");
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-        }*/
-    }
-    }
-
-    void sendFitCMDV2(byte cmd,String data){
-        sendFitCMD(cmd,hexToByteArray(data));
-        long time= System.currentTimeMillis();
-        is_busy_writing = true;
-        while(is_busy_writing){if(System.currentTimeMillis() - time > 500){
-            KLog("Error Char write tiemout");
-            return;}
         }
-    }
-    void sendFitCMDV21(byte cmd,String data){
-        sendFitCMD2(cmd,hexToByteArray(data));
-        long time= System.currentTimeMillis();
-        is_busy_writing = true;
-        while(is_busy_writing){if(System.currentTimeMillis() - time > 500){
-            KLog("Error Char write tiemout");
-            return;}
-        }
-    }
-
-    public static byte[] hexToByteArray(String hex) {
-        hex = hex.length()%2 != 0?"0"+hex:hex;
-
-        byte[] b = new byte[hex.length() / 2];
-
-        for (int i = 0; i < b.length; i++) {
-            int index = i * 2;
-            int v = Integer.parseInt(hex.substring(index, index + 2), 16);
-            b[i] = (byte) v;
-        }
-        return b;
     }
 
     @Override
@@ -450,11 +377,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         doDFUButton.setEnabled(false);
     }
 
-    boolean firstRun=false;
+    boolean firstRun = false;
+
     @Override
     protected void onResume() {
         super.onResume();
-        if(!firstRun){
+        if (!firstRun) {
             runOnUiThread(() -> {
                 final Handler handler = new Handler();
                 handler.postDelayed(new Runnable() {
@@ -462,10 +390,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     public void run() {
                         doDFUButton.setEnabled(true);
                         StartBootloaderButton.setEnabled(true);
-                        init(); }
+                        init();
+                    }
                 }, 300);
 
-            });}else{
+            });
+        } else {
             init();
         }
     }
@@ -485,7 +415,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.DoDfu) {
-            if(bledevice != 6 && bledevice != 66) {
+            if (bledevice != 6) {
                 if (mConnGatt != null) {
                     Method refresh = null;
                     try {
@@ -511,22 +441,22 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 intent.putExtra(DeviceActivity.EXTRA_BLUETOOTH_MODE, blemode);
                 intent.putExtra(DeviceActivity.EXTRA_BLUETOOTH_MODE_NORDIC, blemodenordic);
                 startActivity(intent);
-            }else{
-                    startDaBootloader(0);
+            } else {
+                startDaBootloader(0);
             }
         } else if (v.getId() == R.id.startBootloader) {
-            if(bledevice== 1){
-            writeCharacteristic1("BT+UPGB\r\n");
-            try {
-                sleep(30);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            KLog(writeCharacteristic1("BT+RESET\r\n"));
-            KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
-        }else if (bledevice == 2){
+            if (bledevice == 1) {
+                writeCharacteristic1("BT+UPGB\r\n");
                 try {
-                    writeCharacteristic1((char)3+"");
+                    sleep(30);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                KLog(writeCharacteristic1("BT+RESET\r\n"));
+                KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
+            } else if (bledevice == 2) {
+                try {
+                    writeCharacteristic1((char) 3 + "");
                     sleep(30);
                     writeCharacteristic1("\r");
                     sleep(30);
@@ -537,12 +467,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                     e.printStackTrace();
                 }
                 KLog("Look at the Tracker are there 3 Arrows? Great, now click on 'Do DFU Update' to Flash it.");
-            }else if (bledevice == 6 || bledevice == 66){
+            } else if (bledevice == 6) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("*/*");
                 startActivityForResult(intent, READ_REQUEST_CODE);
-            }else{
+            } else {
                 KLog("Something went totally wrong, you shouldn't be able to press this button right now.");
             }
 
@@ -567,14 +497,14 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         static final UUID Main_Characteristic_Write = UUID.fromString("00001532-1212-EFDE-1523-785FEABCD123");
         static final UUID Main_Characteristic_Notify = UUID.fromString("00001531-1212-EFDE-1523-785FEABCD123");
         static final UUID Notify_Config = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
-        static final UUID Main_Service =  UUID.fromString("00001530-1212-EFDE-1523-785FEABCD123");
+        static final UUID Main_Service = UUID.fromString("00001530-1212-EFDE-1523-785FEABCD123");
     }
 
     public static class StockSecureDFUUUIDs {
         static final UUID Main_Characteristic_Write = UUID.fromString("8ec90002-f315-4f60-9fb8-838830daea50");
         static final UUID Main_Characteristic_Notify = UUID.fromString("8ec90001-f315-4f60-9fb8-838830daea50");
         static final UUID Notify_Config = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
-        static final UUID Main_Service =  UUID.fromString("0000fe59-0000-1000-8000-00805f9b34fb");
+        static final UUID Main_Service = UUID.fromString("0000fe59-0000-1000-8000-00805f9b34fb");
     }
 
     public static class EspruinoUUIDs {
@@ -594,103 +524,71 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
 
-    public void filterFitResponse(byte[] data){
-        runOnUiThread(new Runnable() {
-            public void run() {
-                KLog(bytesToString(data));
-                if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && data[2]==(byte)0x10){
-                    cmdFitLength = data[3];
-                    fullCMD = bytesToString(data);
-                    receivedLength = data.length;
-                }else if(receivedLength < cmdFitLength ){
-                    receivedLength += data.length;
-                    fullCMD += bytesToString(data);
-                }
-                if(receivedLength==cmdFitLength){
-                    //KLog("Got CMD, length: "+cmdFitLength);
-                    if(updateStarted){
-                        if(fullCMD.equals("FEEA1007630000") && !watchInUpdateMode){
-                            watchInUpdateMode = true;
-                            KLog("DaFit in Bootloader mode, starting upload now");
-                            doFitUpdate(0);
-                        }else if (fullCMD.substring(0,10).equals("FEEA100763") && watchInUpdateMode){
-                            int currPosOnWatch = ((data[5]& 255)<<8)+(data[6]& 255);
-                            //KLog("Curr Watch Pos: "+currPosOnWatch);
-                            doFitUpdate(currPosOnWatch);
-                        }else if (fullCMD.substring(0,14).equals("FEEA100963FFFF") && watchInUpdateMode){
-                            KLog("Got Last MSG with CRC: "+ fullCMD.substring(14)+ " File CRC: "+ bytesToString(fullCRC));
-                            if(fullCMD.substring(14).equals(bytesToString(fullCRC))){
-                                KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in nordic Bootloader mode after it is done flashing itself.");
-                                startDaBootloader(0);
-                            }
-                        }
-                    }else{
-                        KLog(fullCMD);
-                    }
-                }
-            }});
-    }
-
-    public void filterFitResponseV2(byte[] data){
+    public void filterFitResponse(byte[] data) {
         runOnUiThread(new Runnable() {
             public void run() {
                 //KLog(bytesToString(data));
-                if(data[0]==(byte)0xFE && data[1]==(byte)0xEA && (data[2]==(byte)0x10 || data[2] == (byte)0x20)){
+                if (data[0] == (byte) 0xFE && data[1] == (byte) 0xEA && data[2] == (byte) 0x10) {
                     cmdFitLength = data[3];
                     fullCMD = bytesToString(data);
                     receivedLength = data.length;
-                }else if(receivedLength < cmdFitLength ){
+                } else if (receivedLength < cmdFitLength) {
                     receivedLength += data.length;
                     fullCMD += bytesToString(data);
                 }
-                if(receivedLength==cmdFitLength){
+                if (receivedLength == cmdFitLength) {
                     //KLog("Got CMD, length: "+cmdFitLength);
-                    if(updateStarted){
-                        if(fullCMD.equals("FEEA1007630000") && !watchInUpdateMode){
+                    if (updateStarted) {
+                        KLog(fullCMD);
+                        if (fullCMD.equals("FEEA1007630000") && !watchInUpdateMode) {
                             watchInUpdateMode = true;
                             KLog("DaFit in Bootloader mode, starting upload now");
                             doFitUpdate(0);
-                        }else if (fullCMD.substring(0,10).equals("FEEA100763") && watchInUpdateMode){
-                            int currPosOnWatch = ((data[5]& 255)<<8)+(data[6]& 255);
+                        } else if (fullCMD.substring(0, 10).equals("FEEA100763") && watchInUpdateMode) {
+                            int currPosOnWatch = ((data[5] & 255) << 8) + (data[6] & 255);
                             //KLog("Curr Watch Pos: "+currPosOnWatch);
                             doFitUpdate(currPosOnWatch);
-                        }else if (fullCMD.substring(0,14).equals("FEEA100963FFFF") && watchInUpdateMode){
-                            KLog("Got Last MSG with CRC: "+ fullCMD.substring(14)+ " File CRC: "+ bytesToString(fullCRC));
-                            if(fullCMD.substring(14).equals(bytesToString(fullCRC))){
+                        } else if (fullCMD.substring(0, 14).equals("FEEA100963FFFF") && watchInUpdateMode) {
+                            KLog("Got Last MSG with CRC: " + fullCMD.substring(14) + " File CRC: " + bytesToString(fullCRC));
+                            if (fullCMD.substring(14).equals(bytesToString(fullCRC))) {
                                 KLog("Update was successful, going to restart to Bootloader now.\nPlease press the Back button to reselect the Tracker that should now be in nordic Bootloader mode after it is done flashing itself.");
                                 startDaBootloader(0);
                             }
                         }
-                    }else{
+                    } else {
                         KLog(fullCMD);
                     }
                 }
-            }});
+            }
+        });
     }
 
     public void filterResponse(String response1) {
-        String response=response1.replaceAll("[^\\x20-\\x7E]", "");
+        String response = response1.replaceAll("[^\\x20-\\x7E]", "");
         runOnUiThread(new Runnable() {
             public void run() {
                 //KLog("Answer: " + response);
-                if (response.length()>= 8){
+                if (response.length() >= 8) {
                     //KLog(response.substring(0,4));
-                if (bledevice==1){
-                   //check if desay version string
-                    if(response.substring(0, 6).equals("AT+VER"))KLog("D6 Firmware Version: "+response.substring(7));
-                    if(response.substring(0, 6).equals("BT+VER"))KLog("D6 Bootloader Version: "+response.substring(7));
-                }else if(bledevice==2){
-                   //check if espruino version string
-                    if(response.substring(0, 4).equals("=\"2v"))KLog("Espruino Version: "+response.substring(2,response.length()-2));
-                }else if(bledevice==7){
-                    //there shouldnt be any messages from the Nordic secure DFU Bootloader
-                }else if(bledevice==3){
-                    //there shouldnt be any messages from the Nordic DFU Bootloader
-                }else{
-                  //nothing to do here, we dont know the BLE device
+                    if (bledevice == 1) {
+                        //check if desay version string
+                        if (response.substring(0, 6).equals("AT+VER"))
+                            KLog("D6 Firmware Version: " + response.substring(7));
+                        if (response.substring(0, 6).equals("BT+VER"))
+                            KLog("D6 Bootloader Version: " + response.substring(7));
+                    } else if (bledevice == 2) {
+                        //check if espruino version string
+                        if (response.substring(0, 4).equals("=\"2v"))
+                            KLog("Espruino Version: " + response.substring(2, response.length() - 2));
+                    } else if (bledevice == 7) {
+                        //there shouldnt be any messages from the Nordic secure DFU Bootloader
+                    } else if (bledevice == 3) {
+                        //there shouldnt be any messages from the Nordic DFU Bootloader
+                    } else {
+                        //nothing to do here, we dont know the BLE device
+                    }
                 }
             }
-        }
         });
     }
 
@@ -719,7 +617,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         }
     }
 
-    public void startDaBootloader(int size){
+    public void startDaBootloader(int size) {
         updateStarted = false;
         rebootStarted = false;
         watchInUpdateMode = false;
@@ -733,12 +631,12 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         fullCRC = new byte[0];
         percentText.setVisibility(View.GONE);
         try {
-            sendFitCMD((byte)0x63,intToByteArray(size));
-            if (size>0)rebootStarted = true;
+            sendFitCMD((byte) 0x63, intToByteArray(size));
+            if (size > 0) rebootStarted = true;
             updateStarted = true;
             percentText.setVisibility(View.VISIBLE);
             fullCRC = crc16(loadedUpdateFile);
-            if(size>0)KLog("Send Bootloader Start");
+            if (size > 0) KLog("Send Bootloader Start");
             sleep(30);
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -746,18 +644,8 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
     public void sendFitCMD(byte cmd, byte[] data) {
-        byte[] startBytes = {(byte)0xFE,(byte)0xEA,(bledevice==6)?(byte)0x10:(byte)0x20,(byte)0x00,(byte)0x00};
-        startBytes[3] = (byte)(startBytes.length + data.length);
-        startBytes[4] = cmd;
-        byte[] c = new byte[startBytes.length + data.length];
-        System.arraycopy(startBytes, 0, c, 0, startBytes.length);
-        System.arraycopy(data, 0, c, startBytes.length, data.length);
-        //KLog(bytesToString(c));
-        String temp = writeCharacteristic2(c);
-    }
-    public void sendFitCMD2(byte cmd, byte[] data) {
-        byte[] startBytes = {(byte)0xFE,(byte)0xEA,(byte)0x20,(byte)0x00,(byte)0x00};
-        startBytes[3] = (byte)(startBytes.length + data.length);
+        byte[] startBytes = {(byte) 0xFE, (byte) 0xEA, ((Fit_version == 1) ? (byte) 0x10 : (byte) 0x20), (byte) 0x00, (byte) 0x00};
+        startBytes[3] = (byte) (startBytes.length + data.length);
         startBytes[4] = cmd;
         byte[] c = new byte[startBytes.length + data.length];
         System.arraycopy(startBytes, 0, c, 0, startBytes.length);
@@ -792,28 +680,29 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
     @SuppressLint("SetTextI18n")
-    public void doFitUpdate(int currWatchPos){
-        if(currWatchPos > currentPartPos ){
-            currentPartPos=currWatchPos;
-        if(loadedUpdateFile.length > 256) {
-            currPart = Arrays.copyOfRange(loadedUpdateFile, 0, 256);
-            loadedUpdateFile  = Arrays.copyOfRange(loadedUpdateFile, 256, loadedUpdateFile.length);
-        }else{
-            currPart = loadedUpdateFile;
-            loadedUpdateFile = new byte[0];
-        }}
-        int updatePercent =((totalSizeUpdate-loadedUpdateFile.length)*100/totalSizeUpdate*100)/100;
-        percentText.setText(updatePercent+"% "+(totalSizeUpdate-loadedUpdateFile.length) + " from "+totalSizeUpdate + " bytes");
+    public void doFitUpdate(int currWatchPos) {
+        if (currWatchPos > currentPartPos) {
+            currentPartPos = currWatchPos;
+            if (loadedUpdateFile.length > 256) {
+                currPart = Arrays.copyOfRange(loadedUpdateFile, 0, 256);
+                loadedUpdateFile = Arrays.copyOfRange(loadedUpdateFile, 256, loadedUpdateFile.length);
+            } else {
+                currPart = loadedUpdateFile;
+                loadedUpdateFile = new byte[0];
+            }
+        }
+        int updatePercent = ((totalSizeUpdate - loadedUpdateFile.length) * 100 / totalSizeUpdate * 100) / 100;
+        percentText.setText(updatePercent + "% " + (totalSizeUpdate - loadedUpdateFile.length) + " from " + totalSizeUpdate + " bytes");
         progressBar.setProgress(updatePercent);
         sendFitDFU(currPart);
     }
 
     public void sendFitDFU(byte[] data) {
-        byte[] startBytes = {(byte)0xFE,(byte)0x00,(byte)0x00,(byte)0x00};
+        byte[] startBytes = {(byte) 0xFE, (byte) 0x00, (byte) 0x00, (byte) 0x00};
         byte[] crc16 = crc16(data);
         startBytes[1] = crc16[0];
         startBytes[2] = crc16[1];
-        startBytes[3] = (byte)data.length;
+        startBytes[3] = (byte) data.length;
         byte[] c = new byte[startBytes.length + data.length];
         System.arraycopy(startBytes, 0, c, 0, startBytes.length);
         System.arraycopy(data, 0, c, startBytes.length, data.length);
@@ -821,7 +710,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         String temp = writeCharacteristicDFUpre(c);
     }
 
-    public static byte[]  crc16(final byte[] buffer) {
+    public static byte[] crc16(final byte[] buffer) {
         int crc = 0xFEEA;
         for (byte b : buffer) {
             crc = ((crc >>> 8) | (crc << 8)) & 0xffff;
@@ -834,25 +723,25 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         return new byte[]{(byte) ((crc >> 8) & 255), (byte) (crc & 255)};
     }
 
-    public String writeCharacteristicDFUpre(byte[] data){
+    public String writeCharacteristicDFUpre(byte[] data) {
         String answer = "";
-        if(data.length>20) {
-            fullSend = Arrays.copyOfRange(data, 20, data.length );
+        if (data.length > 20) {
+            fullSend = Arrays.copyOfRange(data, 20, data.length);
             byte[] dataWrite = Arrays.copyOfRange(data, 0, 20);
             answer = writeCharacteristicDFU(dataWrite);
-        }else {
+        } else {
             answer = writeCharacteristicDFU(data);
         }
-         return answer;
+        return answer;
     }
 
-    public void sendNextPart(){
-        if(fullSend!=null){
-            if(fullSend.length > 0) if(fullSend.length > 20) {
+    public void sendNextPart() {
+        if (fullSend != null) {
+            if (fullSend.length > 0) if (fullSend.length > 20) {
                 byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, 20);
-                fullSend = Arrays.copyOfRange(fullSend, 20, fullSend.length );
+                fullSend = Arrays.copyOfRange(fullSend, 20, fullSend.length);
                 writeCharacteristicDFU(dataWrite);
-            }else {
+            } else {
                 byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, fullSend.length);
                 fullSend = new byte[0];
                 writeCharacteristicDFU(dataWrite);
@@ -860,19 +749,6 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         }
     }
 
-    public void sendNextPartV2(){
-        if(fullSend!=null){
-            if(fullSend.length > 0) if(fullSend.length > 20) {
-                byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, 20);
-                fullSend = Arrays.copyOfRange(fullSend, 20, fullSend.length );
-                writeCharacteristicDFU(dataWrite);
-            }else {
-                byte[] dataWrite = Arrays.copyOfRange(fullSend, 0, fullSend.length);
-                fullSend = new byte[0];
-                writeCharacteristicDFU(dataWrite);
-            }
-        }
-    }
     public String writeCharacteristicDFU(byte[] data) {
         final UUID DFU_Characteristic_Write = UUID.fromString("0000fee5-0000-1000-8000-00805f9b34fb");
         if (data == null) {
@@ -898,8 +774,8 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             }
         }
     }
-    public static byte[] intToByteArray(int a)
-    {
+
+    public static byte[] intToByteArray(int a) {
         byte[] ret = new byte[4];
         ret[3] = (byte) (a & 0xFF);
         ret[2] = (byte) ((a >> 8) & 0xFF);
@@ -917,7 +793,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
                 if (characteristic != null) {
                     boolean success = gatt.setCharacteristicNotification(characteristic, enabled);
                     if (success) {
-                        if(!updateStarted)KLog("BLE connection successful");
+                        if (!updateStarted) KLog("BLE connection successful");
                         BluetoothGattDescriptor descriptor = characteristic.getDescriptor(Notify_Config);
                         if (descriptor == null) {
                             KLog("descriptor is null");
@@ -940,7 +816,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     }
 
     public void KLog(String TEXT) {
-        tvContent.append("\n" + TEXT+"\n");
+        tvContent.append("\n" + TEXT + "\n");
         scrollDown();
     }
 
