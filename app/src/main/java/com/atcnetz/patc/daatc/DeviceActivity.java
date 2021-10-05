@@ -658,9 +658,29 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
 
         try {
             if (size >0 && size < 0x10000) {
-                KLog("Selected file is to small, size: " + size);
+                AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
+                builder.setTitle("File Error")
+                        .setMessage("Selected file is to small, size: " + size + " bytes")
+                        .setCancelable(false)
+                        .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                            }
+                        });
+                AlertDialog dialog = builder.create();
+                dialog.show();
             }else if (size > ((fit_protocol_version == 1) ? 0x2f000 : 0x3f000)) {
-                KLog("Selected file is to big, size: " + size);
+                AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
+                builder.setTitle("File Error")
+                        .setMessage("Selected file is to big, size: " + size + " bytes")
+                        .setCancelable(false)
+                        .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                            }
+                        });
+                AlertDialog dialog = builder.create();
+                dialog.show();
             }else {
                 sendFitCMD((byte) 0x63, intToByteArray(size));
                 if(fit_protocol_version==1)rebootStarted = true;
