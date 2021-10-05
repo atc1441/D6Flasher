@@ -14,6 +14,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -21,7 +23,10 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.Button;
+import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
@@ -35,12 +40,34 @@ import java.util.List;
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
 
+abstract class TextChangedListener<T> implements TextWatcher {
+    private T target;
+
+    public TextChangedListener(T target) {
+        this.target = target;
+    }
+
+    @Override
+    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+    @Override
+    public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+    @Override
+    public void afterTextChanged(Editable s) {
+        this.onTextChanged(target, s);
+    }
+
+    public abstract void onTextChanged(T target, Editable s);
+}
 @RuntimePermissions
 public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCallback {
     private BluetoothAdapter mBTAdapter;
     private DeviceAdapter mDeviceAdapter;
     private boolean mIsScanning;
     private Button button;
+    private EditText scanFilterEdit;
+    private Switch rssiSortSwitch;
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     private ScanCallback mLeScanCallback = new ScanCallback() {
@@ -81,6 +108,21 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
                 startActivity(intent);
             }
         });
+        scanFilterEdit = (EditText) findViewById(R.id.scanFilterInput);
+        scanFilterEdit.addTextChangedListener(new TextChangedListener<EditText>(scanFilterEdit) {
+            @Override
+            public void onTextChanged(EditText target, Editable s) {
+                mDeviceAdapter.setNameFilter(scanFilterEdit.getText().toString());
+            }
+        });
+        rssiSortSwitch = (Switch) findViewById(R.id.switch1);
+        rssiSortSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                mDeviceAdapter.setSortByRSSI(isChecked);
+            }
+        });
+
         init();
     }
 

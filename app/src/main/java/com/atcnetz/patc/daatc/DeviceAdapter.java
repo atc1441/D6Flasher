@@ -15,11 +15,15 @@
  */
 package com.atcnetz.patc.daatc;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 import com.atcnetz.patc.util.ScannedDevice;
+
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +35,8 @@ public class DeviceAdapter extends ArrayAdapter<ScannedDevice> {
     private List<ScannedDevice> mList;
     private LayoutInflater mInflater;
     private int mResId;
+    private String prefixFilter = "";
+    private boolean rssiSort = false;
 
     public DeviceAdapter(Context context, int resId, List<ScannedDevice> objects) {
         super(context, resId, objects);
@@ -57,7 +63,9 @@ public class DeviceAdapter extends ArrayAdapter<ScannedDevice> {
         return convertView;
     }
 
-    /** add or update BluetoothDevice */
+    /**
+     * add or update BluetoothDevice
+     */
     public void update(BluetoothDevice newDevice, int rssi) {
         if ((newDevice == null) || (newDevice.getAddress() == null)) {
             return;
@@ -72,15 +80,63 @@ public class DeviceAdapter extends ArrayAdapter<ScannedDevice> {
             }
         }
         if (!contains) {
-            mList.add(new ScannedDevice(newDevice, rssi));
+            if (prefixFilter.equals("")) {
+                mList.add(new ScannedDevice(newDevice, rssi));
+            } else {
+                if (newDevice.getName() != null && newDevice.getName().toLowerCase().startsWith(prefixFilter.toLowerCase()))
+                    mList.add(new ScannedDevice(newDevice, rssi));
+            }
         }
+        sortByRSSI();
         notifyDataSetChanged();
     }
 
     public void clear() {
 
-            mList.clear();
+        mList.clear();
 
+        notifyDataSetChanged();
+    }
+
+    public void setSortByRSSI(boolean state) {
+        if (state) {
+            rssiSort = true;
+            sortByRSSI();
+        } else {
+            rssiSort = false;
+        }
+    }
+
+    public void sortByRSSI() {
+        if (!rssiSort) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            mList.sort(new Comparator<ScannedDevice>() {
+                @Override
+                public int compare(ScannedDevice lhs, ScannedDevice rhs) {
+
+                    if (lhs.getRssi() < rhs.getRssi()) {
+                        return 1;
+                    } else if (lhs.getRssi() > rhs.getRssi()) {
+                        return -1;
+                    } else {
+                        return 0;
+                    }
+
+                }
+            });
+            notifyDataSetChanged();
+        }
+    }
+
+    public void setNameFilter(String filterName) {
+        prefixFilter = filterName;
+        if (prefixFilter.equals("")) return;
+        for (ScannedDevice device : mList) {
+            if (device.getDevice().getName() == null || !device.getDevice().getName().toLowerCase().startsWith(prefixFilter.toLowerCase())) {
+                //Remove device here
+                mList.remove(device);
+            }
+        }
         notifyDataSetChanged();
     }
 }
