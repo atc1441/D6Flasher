@@ -131,12 +131,19 @@ public class DeviceAdapter extends ArrayAdapter<ScannedDevice> {
     public void setNameFilter(String filterName) {
         prefixFilter = filterName;
         if (prefixFilter.equals("")) return;
+        //noinspection StatementWithEmptyBody
+        while(interateList()){}
+        notifyDataSetChanged();
+    }
+
+    boolean interateList(){
         for (ScannedDevice device : mList) {
             if (device.getDevice().getName() == null || !device.getDevice().getName().toLowerCase().startsWith(prefixFilter.toLowerCase())) {
                 //Remove device here
                 mList.remove(device);
+                return true;
             }
         }
-        notifyDataSetChanged();
+        return false;
     }
 }
