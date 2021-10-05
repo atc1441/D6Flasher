@@ -347,6 +347,7 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
     };
 
     void check_fit_version(String manu_name) {
+        setNotifyCharacteristic(true);
         if (!updateStarted) {
             KLog("DaFit Tracker Was found, please select the update file via 'Select File' be careful to select the right file as there is now way to verify it by this app. Do this on your own risk.");
             AlertDialog.Builder builder = new AlertDialog.Builder(DeviceActivity.this);
@@ -361,7 +362,6 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             AlertDialog dialog = builder.create();
             dialog.show();
 
-            setNotifyCharacteristic(true);
             if (manu_name.equals("MOYOUNG-V2")) {
                 KLog("V2 detected");
                 fit_protocol_version = 2;
