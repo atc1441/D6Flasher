@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -30,6 +31,7 @@ import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
+import androidx.core.app.ActivityCompat;
 
 import com.atcnetz.patc.util.BleUtil;
 import com.atcnetz.patc.util.ScannedDevice;
@@ -48,10 +50,12 @@ abstract class TextChangedListener<T> implements TextWatcher {
     }
 
     @Override
-    public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+    public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+    }
 
     @Override
-    public void onTextChanged(CharSequence s, int start, int before, int count) {}
+    public void onTextChanged(CharSequence s, int start, int before, int count) {
+    }
 
     @Override
     public void afterTextChanged(Editable s) {
@@ -60,6 +64,7 @@ abstract class TextChangedListener<T> implements TextWatcher {
 
     public abstract void onTextChanged(T target, Editable s);
 }
+
 @RuntimePermissions
 public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCallback {
     private BluetoothAdapter mBTAdapter;
@@ -236,11 +241,54 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
     }
 
     boolean popup_was_shown = false;
+    boolean popup_was_shown1 = false;
 
     @NeedsPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     void startScan() {
         if ((mBTAdapter != null) && (!mIsScanning)) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if ((this.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)||(this.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)) {
+                    if (!popup_was_shown1) {
+                        popup_was_shown1 = true;
+                        if (this.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)  != PackageManager.PERMISSION_GRANTED){
+                            AlertDialog.Builder alertDialogBuilder1 = new AlertDialog.Builder(this);
+                            alertDialogBuilder1.setMessage("This app does need \"bluetooth connect permissions\" to connect to BLE devices.");
+                            alertDialogBuilder1.setTitle("BLE Connect permission");
+                            alertDialogBuilder1.setNegativeButton("ok", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialogInterface, int i) {
+                                    dialogInterface.cancel();
+                                    requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 1);
+                                }
+                            });
+                            AlertDialog alertDialog1 = alertDialogBuilder1.create();
+                            alertDialog1.show();
+                        }
+                    }
+                    if (!popup_was_shown) {
+                        popup_was_shown = true;
+                        if (this.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED){
+                        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+                        alertDialogBuilder.setMessage("This app needs location data to enable bluetooth scanning even when the app is closed or not in use.");
+                        alertDialogBuilder.setTitle("Location permission");
+                        alertDialogBuilder.setNegativeButton("ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface1, int i) {
+                                dialogInterface1.cancel();
+                                requestPermissions(new String[]{Manifest.permission.BLUETOOTH_SCAN}, 1);
+                            }
+                        });
+                        AlertDialog alertDialog = alertDialogBuilder.create();
+                        alertDialog.show();
+                        }
+                    }
+                } else {
+                    mBTAdapter.getBluetoothLeScanner().startScan(mLeScanCallback);
+                    mIsScanning = true;
+                    setProgressBarIndeterminateVisibility(true);
+                    invalidateOptionsMenu();
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 if (this.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                     if (!popup_was_shown) {
                         popup_was_shown = true;
@@ -275,6 +323,16 @@ public class ScanActivity extends Activity implements BluetoothAdapter.LeScanCal
     private void stopScan() {
         if (mBTAdapter != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                    // TODO: Consider calling
+                    //    ActivityCompat#requestPermissions
+                    // here to request the missing permissions, and then overriding
+                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                    //                                          int[] grantResults)
+                    // to handle the case where the user grants the permission. See the documentation
+                    // for ActivityCompat#requestPermissions for more details.
+                    return;
+                }
                 mBTAdapter.getBluetoothLeScanner().stopScan(mLeScanCallback);
             } else {
                 mBTAdapter.stopLeScan(this);
