@@ -67,6 +67,10 @@ public class DFUActivity extends Activity implements View.OnClickListener {
         if (requestCode == READ_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             if (resultData != null) {
                 uri = resultData.getData();
+                if(getFileName(uri).equals("updatefile")) {
+                    KLog("EEROR file could not be openend, please try a different file selection method.");
+                    return;
+                }
                 KLog("Selected file: " + getFileName(uri) + "\nFileSize: " + getFileSize(uri) + "Kb");
                 runOnUiThread(() -> {
                     final Handler handler = new Handler();
@@ -154,7 +158,8 @@ public class DFUActivity extends Activity implements View.OnClickListener {
     }
 
     public String getFileName(Uri uri) {
-        String result = null;
+        String result = "updatefile";
+            try{
         if (Objects.equals(uri.getScheme(), "content")) {
             Cursor cursor = getContentResolver().query(uri, null, null, null, null);
             try {
@@ -162,7 +167,7 @@ public class DFUActivity extends Activity implements View.OnClickListener {
                     result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
                 }
             } finally {
-                assert cursor != null;
+                if (cursor != null)
                 cursor.close();
             }
         }
@@ -174,12 +179,16 @@ public class DFUActivity extends Activity implements View.OnClickListener {
                 result = result.substring(cut + 1);
                 if (!result.toLowerCase().endsWith(".zip".toLowerCase())) result = result + ".zip";
             }
+        }}
+            catch(Exception e) {
+
         }
         return result;
     }
 
     public String getFileSize(Uri uri) {
-        String result = null;
+        String result = "unknown";
+        try{
         if (Objects.equals(uri.getScheme(), "content")) {
             Cursor cursor = getContentResolver().query(uri, null, null, null, null);
             try {
@@ -187,10 +196,14 @@ public class DFUActivity extends Activity implements View.OnClickListener {
                     result = String.valueOf(cursor.getInt(cursor.getColumnIndex(OpenableColumns.SIZE)));
                 }
             } finally {
-                assert cursor != null;
+                if (cursor != null)
                 cursor.close();
             }
         } else result = "unknown";
+        }
+        catch(Exception e) {
+
+        }
         return result;
     }
 

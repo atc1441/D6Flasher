@@ -5,7 +5,7 @@ android {
 
     defaultConfig {
         applicationId "com.atcnetz.paatc.patc"
-        minSdkVersion 19
+        minSdkVersion 21
         targetSdkVersion 32
     }
 
@@ -29,5 +29,5 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.0-alpha01'
     implementation "com.github.permissions-dispatcher:permissionsdispatcher:4.8.0"
     annotationProcessor "com.github.permissions-dispatcher:permissionsdispatcher-processor:4.8.0"
-    implementation project(':dfu')
+    implementation 'no.nordicsemi.android:dfu:2.0.0'
 }

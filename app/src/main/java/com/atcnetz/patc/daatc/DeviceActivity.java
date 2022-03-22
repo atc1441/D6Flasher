@@ -98,6 +98,10 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
             if (resultData != null) {
                 uri = resultData.getData();
                 assert uri != null;
+                if(getFileName(uri).equals("updatefile")) {
+                    KLog("EEROR file could not be openend, please try a different file selection method.");
+                    return;
+                }
                 KLog("Selected file: " + getFileName(uri));
                 try {
                     loadedUpdateFile = fullyReadFileToBytes(uri);
@@ -1023,28 +1027,55 @@ public class DeviceActivity extends Activity implements View.OnClickListener {
         return bytes;
     }
 
-    @SuppressLint("Range")
+
     public String getFileName(Uri uri) {
-        String result = null;
-        if (Objects.equals(uri.getScheme(), "content")) {
-            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
-            try {
-                if (cursor != null && cursor.moveToFirst()) {
-                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+        String result = "updatefile";
+        try{
+            if (Objects.equals(uri.getScheme(), "content")) {
+                Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+                try {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                    }
+                } finally {
+                    if (cursor != null)
+                        cursor.close();
                 }
-            } finally {
-                assert cursor != null;
-                cursor.close();
             }
-        }
-        if (result == null) {
-            result = uri.getPath();
-            assert result != null;
-            int cut = result.lastIndexOf('/');
-            if (cut != -1) {
-                result = result.substring(cut + 1);
-            }
+            if (result == null) {
+                result = uri.getPath();
+                assert result != null;
+                int cut = result.lastIndexOf('/');
+                if (cut != -1) {
+                    result = result.substring(cut + 1);
+                    if (!result.toLowerCase().endsWith(".zip".toLowerCase())) result = result + ".zip";
+                }
+            }}
+        catch(Exception e) {
+
         }
         return result;
     }
+
+    public String getFileSize(Uri uri) {
+        String result = "unknown";
+        try{
+            if (Objects.equals(uri.getScheme(), "content")) {
+                Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+                try {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        result = String.valueOf(cursor.getInt(cursor.getColumnIndex(OpenableColumns.SIZE)));
+                    }
+                } finally {
+                    if (cursor != null)
+                        cursor.close();
+                }
+            } else result = "unknown";
+        }
+        catch(Exception e) {
+
+        }
+        return result;
+    }
+
 }
